@@ -37,7 +37,7 @@ export const register = async (req: Request, res: Response) => {
 
         const passwordHash = await bcrypt.hash(password, 10);
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+        const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
         const user = await createUser({
             name,
@@ -81,6 +81,14 @@ export const verifyEmail = async (req: Request, res: Response) => {
         const user = await getUserById(userId);
         if (!user) {
             res.status(404).json({ success: false, message: "User not found" });
+            return;
+        }
+
+        console.log("DB code:", user.verificationCode);
+        console.log("Submitted code:", code);
+
+        if (!user.verificationCode) {
+            res.status(400).json({ success: false, message: "No verification code found. Please register again." });
             return;
         }
 
