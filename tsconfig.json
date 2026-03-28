@@ -1,20 +1,18 @@
 {
     "compilerOptions": {
-        "rootDir": "./src",
-        "outDir": "./dist",
+        "target": "ES2020",
         "module": "commonjs",
-        "target": "es2022",
-        "esModuleInterop": true,
+        "outDir": "./dist",
+        "rootDir": "./src",
         "strict": true,
-        "skipLibCheck": true,
-        "moduleResolution": "node",
-        "resolveJsonModule": true,
-        "forceConsistentCasingInFileNames": true
+        "esModuleInterop": true,
+        "skipLibCheck": true
     },
     "include": [
-        "src/**/*.ts"
+        "src/**/*"
     ],
     "exclude": [
-        "node_modules"
+        "node_modules",
+        "dist"
     ]
 }
