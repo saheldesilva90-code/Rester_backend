@@ -10,6 +10,9 @@ export const transporter = nodemailer.createTransport({
 });
 
 export const sendVerificationEmail = async (email: string, code: string, name: string) => {
+    console.log("EMAIL_USER:", ENV.EMAIL_USER);
+    console.log("EMAIL_PASS:", ENV.EMAIL_PASS ? "loaded" : "MISSING");
+
     await transporter.sendMail({
         from: `"Rester" <${ENV.EMAIL_USER}>`,
         to: email,
