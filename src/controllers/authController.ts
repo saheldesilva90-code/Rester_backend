@@ -8,7 +8,9 @@ import {
     updateRefreshToken,
     updatePushToken,
     getUserById,
+    updateUser,
 } from "../db/queries";
+import { sendVerificationEmail } from "../lib/mailer";
 
 const generateAccessToken = (userId: string) => {
     return jwt.sign({ userId }, ENV.JWT_SECRET, { expiresIn: "15m" });
@@ -34,26 +36,82 @@ export const register = async (req: Request, res: Response) => {
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
-        const user = await createUser({ name, email, passwordHash });
+        const user = await createUser({
+            name,
+            email,
+            passwordHash,
+            verificationCode,
+            verificationCodeExpiry,
+            isVerified: false,
+        });
 
-        const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
+        await sendVerificationEmail(email, verificationCode, name);
 
-        await updateRefreshToken(user.id, refreshToken);
-
-        if (pushToken) {
-            await updatePushToken(user.id, pushToken);
-        }
-
-        const { passwordHash: _, refreshToken: __, ...safeUser } = user;
+        if (pushToken) await updatePushToken(user.id, pushToken);
 
         res.status(201).json({
             success: true,
-            data: { user: safeUser, accessToken, refreshToken },
+            message: "Verification code sent to your email",
+            data: { userId: user.id, email: user.email },
         });
     } catch (error) {
         console.error("Register error:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+export const verifyEmail = async (req: Request, res: Response) => {
+    try {
+        const { userId, code } = req.body;
+
+        if (!userId || !code) {
+            res.status(400).json({ success: false, message: "User ID and code are required" });
+            return;
+        }
+
+        const user = await getUserById(userId);
+        if (!user) {
+            res.status(404).json({ success: false, message: "User not found" });
+            return;
+        }
+
+        if (user.isVerified) {
+            res.status(400).json({ success: false, message: "Email already verified" });
+            return;
+        }
+
+        if (user.verificationCode !== code) {
+            res.status(400).json({ success: false, message: "Invalid verification code" });
+            return;
+        }
+
+        if (!user.verificationCodeExpiry || user.verificationCodeExpiry < new Date()) {
+            res.status(400).json({ success: false, message: "Verification code has expired" });
+            return;
+        }
+
+        await updateUser(userId, {
+            isVerified: true,
+            verificationCode: null,
+            verificationCodeExpiry: null,
+        });
+
+        const accessToken = generateAccessToken(user.id);
+        const refreshToken = generateRefreshToken(user.id);
+        await updateRefreshToken(user.id, refreshToken);
+
+        const { passwordHash: _, refreshToken: __, verificationCode: ___, ...safeUser } = user;
+
+        res.status(200).json({
+            success: true,
+            message: "Email verified successfully",
+            data: { user: safeUser, accessToken, refreshToken },
+        });
+    } catch (error) {
+        console.error("Verify email error:", error);
         res.status(500).json({ success: false, message: "Internal server error" });
     }
 };

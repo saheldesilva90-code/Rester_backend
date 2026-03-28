@@ -9,4 +9,6 @@ export const ENV = {
     APP_URL: process.env.APP_URL,
     JWT_SECRET: process.env.JWT_SECRET!,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET!,
+    EMAIL_USER: process.env.EMAIL_USER!,
+    EMAIL_PASS: process.env.EMAIL_PASS!,
 }
