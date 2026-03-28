@@ -322,6 +322,15 @@ export const softDeleteMessage = async (id: string, userId: string) => {
     return message;
 };
 
+export const updatePushToken = async (id: string, pushToken: string | null) => {
+    const [user] = await db
+        .update(users)
+        .set({ pushToken })
+        .where(eq(users.id, id))
+        .returning();
+    return user;
+};
+
 export const markMessageAsRead = async (messageId: string, userId: string) => {
     const existing = await db.query.messageReadReceipts.findFirst({
         where: (r, { and, eq }) =>

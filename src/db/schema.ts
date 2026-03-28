@@ -8,6 +8,7 @@ export const users = pgTable("users", {
     imageUrl: text("image_url"),
     passwordHash: text("password_hash").notNull(),
     refreshToken: text("refresh_token"),
+    pushToken: text("push_token"),
     isOnline: boolean("is_online").notNull().default(false),
     lastSeenAt: timestamp("last_seen_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
