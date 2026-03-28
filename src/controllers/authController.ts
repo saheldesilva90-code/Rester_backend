@@ -74,18 +74,13 @@ export const verifyEmail = async (req: Request, res: Response) => {
         const { userId, code } = req.body;
 
         if (!userId || !code) {
-            res.status(400).json({ success: false, message: "User ID and code are required" });
+            res.status(400).json({ success: false, message: "userId and code are required" });
             return;
         }
 
         const user = await getUserById(userId);
         if (!user) {
             res.status(404).json({ success: false, message: "User not found" });
-            return;
-        }
-
-        if (user.isVerified) {
-            res.status(400).json({ success: false, message: "Email already verified" });
             return;
         }
 
@@ -105,16 +100,19 @@ export const verifyEmail = async (req: Request, res: Response) => {
             verificationCodeExpiry: null,
         });
 
-        const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
-        await updateRefreshToken(user.id, refreshToken);
+        const accessToken = generateAccessToken(userId);
+        const refreshToken = generateRefreshToken(userId);
+        await updateRefreshToken(userId, refreshToken);
 
-        const { passwordHash: _, refreshToken: __, verificationCode: ___, ...safeUser } = user;
+        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, ...safeUser } = user;
 
         res.status(200).json({
             success: true,
-            message: "Email verified successfully",
-            data: { user: safeUser, accessToken, refreshToken },
+            data: {
+                user: { ...safeUser, isVerified: true },
+                accessToken,
+                refreshToken,
+            },
         });
     } catch (error) {
         console.error("Verify email error:", error);
@@ -137,6 +135,11 @@ export const login = async (req: Request, res: Response) => {
             return;
         }
 
+        if (!user.isVerified) {
+            res.status(401).json({ success: false, message: "Please verify your email first" });
+            return;
+        }
+
         const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
         if (!isPasswordValid) {
             res.status(401).json({ success: false, message: "Invalid credentials" });
@@ -152,7 +155,7 @@ export const login = async (req: Request, res: Response) => {
             await updatePushToken(user.id, pushToken);
         }
 
-        const { passwordHash: _, refreshToken: __, ...safeUser } = user;
+        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, ...safeUser } = user;
 
         res.status(200).json({
             success: true,
