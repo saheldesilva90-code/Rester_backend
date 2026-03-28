@@ -48,7 +48,13 @@ export const register = async (req: Request, res: Response) => {
             isVerified: false,
         });
 
-        await sendVerificationEmail(email, verificationCode, name);
+        try {
+            await sendVerificationEmail(email, verificationCode, name);
+        } catch (emailError) {
+            console.error("Email send failed:", emailError);
+            res.status(500).json({ success: false, message: "Failed to send verification email" });
+            return;
+        }
 
         if (pushToken) await updatePushToken(user.id, pushToken);
 
