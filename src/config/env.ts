@@ -4,7 +4,7 @@ dotenv.config({ quiet: true });
 
 export const ENV = {
     PORT: process.env.PORT || 3000,
-    DB_URL: process.env.DB_URL,
+    DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     APP_URL: process.env.APP_URL
 }
