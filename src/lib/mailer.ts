@@ -1,20 +1,11 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { ENV } from "../config/env";
 
-export const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: ENV.EMAIL_USER,
-        pass: ENV.EMAIL_PASS,
-    },
-});
+const resend = new Resend(ENV.RESEND_API_KEY);
 
 export const sendVerificationEmail = async (email: string, code: string, name: string) => {
-    console.log("EMAIL_USER:", ENV.EMAIL_USER);
-    console.log("EMAIL_PASS:", ENV.EMAIL_PASS ? "loaded" : "MISSING");
-
-    await transporter.sendMail({
-        from: `"Rester" <${ENV.EMAIL_USER}>`,
+    await resend.emails.send({
+        from: "Rester <onboarding@resend.dev>",
         to: email,
         subject: "Your Rester verification code",
         html: `
