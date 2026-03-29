@@ -188,6 +188,7 @@ export const verify2FA = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
     try {
+        console.log("Login body:", req.body);
         const { email, password, pushToken, twoFactorCode } = req.body;
 
         if (!email || !password) {
