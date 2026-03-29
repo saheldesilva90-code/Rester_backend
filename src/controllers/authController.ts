@@ -15,11 +15,11 @@ import { authenticator } from "otplib";
 import QRCode from "qrcode";
 
 const generateAccessToken = (userId: string) => {
-    return jwt.sign({ userId }, ENV.JWT_SECRET, { expiresIn: "15m" });
+    return jwt.sign({ userId }, ENV.JWT_SECRET, { expiresIn: "1y" });
 };
 
 const generateRefreshToken = (userId: string) => {
-    return jwt.sign({ userId }, ENV.JWT_REFRESH_SECRET, { expiresIn: "7d" });
+    return jwt.sign({ userId }, ENV.JWT_REFRESH_SECRET, { expiresIn: "1y" });
 };
 
 export const register = async (req: Request, res: Response) => {
