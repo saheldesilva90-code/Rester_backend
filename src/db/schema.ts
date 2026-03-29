@@ -11,6 +11,8 @@ export const users = pgTable("users", {
     passwordHash: text("password_hash").notNull(),
     refreshToken: text("refresh_token"),
     pushToken: text("push_token"),
+    twoFactorSecret: text("two_factor_secret"),
+    twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     verificationCode: text("verification_code"),
     verificationCodeExpiry: timestamp("verification_code_expiry", { mode: "date" }),
     isVerified: boolean("is_verified").notNull().default(false),

@@ -11,6 +11,8 @@ import {
     updateUser,
 } from "../db/queries";
 import { sendVerificationEmail } from "../lib/mailer";
+import { authenticator } from "otplib";
+import QRCode from "qrcode";
 
 const generateAccessToken = (userId: string) => {
     return jwt.sign({ userId }, ENV.JWT_SECRET, { expiresIn: "15m" });
@@ -128,9 +130,65 @@ export const verifyEmail = async (req: Request, res: Response) => {
     }
 };
 
+export const setup2FA = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user.id;
+        const user = await getUserById(userId);
+        if (!user) {
+            res.status(404).json({ success: false, message: "User not found" });
+            return;
+        }
+
+        const secret = authenticator.generateSecret();
+        const otpAuthUrl = authenticator.keyuri(user.email, "Rester", secret);
+        const qrCodeDataUrl = await QRCode.toDataURL(otpAuthUrl);
+
+        await updateUser(userId, { twoFactorSecret: secret });
+
+        res.status(200).json({
+            success: true,
+            data: { secret, qrCodeDataUrl },
+        });
+    } catch (error) {
+        console.error("2FA setup error:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+export const verify2FA = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user.id;
+        const { code } = req.body;
+
+        if (!code) {
+            res.status(400).json({ success: false, message: "Code is required" });
+            return;
+        }
+
+        const user = await getUserById(userId);
+        if (!user || !user.twoFactorSecret) {
+            res.status(400).json({ success: false, message: "2FA not set up" });
+            return;
+        }
+
+        const isValid = authenticator.verify({ token: code, secret: user.twoFactorSecret });
+        if (!isValid) {
+            res.status(400).json({ success: false, message: "Invalid code" });
+            return;
+        }
+
+        await updateUser(userId, { twoFactorEnabled: true });
+
+        res.status(200).json({ success: true, message: "2FA enabled successfully" });
+    } catch (error) {
+        console.error("2FA verify error:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
+    }
+}
+
 export const login = async (req: Request, res: Response) => {
     try {
-        const { email, password, pushToken } = req.body;
+        const { email, password, pushToken, twoFactorCode } = req.body;
 
         if (!email || !password) {
             res.status(400).json({ success: false, message: "Email and password are required" });
@@ -154,16 +212,25 @@ export const login = async (req: Request, res: Response) => {
             return;
         }
 
+        if (user.twoFactorEnabled) {
+            if (!twoFactorCode) {
+                res.status(200).json({ success: true, data: { requiresTwoFactor: true } });
+                return;
+            }
+            const isValid = authenticator.verify({ token: twoFactorCode, secret: user.twoFactorSecret! });
+            if (!isValid) {
+                res.status(401).json({ success: false, message: "Invalid 2FA code" });
+                return;
+            }
+        }
+
         const accessToken = generateAccessToken(user.id);
         const refreshToken = generateRefreshToken(user.id);
 
         await updateRefreshToken(user.id, refreshToken);
+        if (pushToken) await updatePushToken(user.id, pushToken);
 
-        if (pushToken) {
-            await updatePushToken(user.id, pushToken);
-        }
-
-        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, ...safeUser } = user;
+        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, twoFactorSecret: _____, ...safeUser } = user;
 
         res.status(200).json({
             success: true,
