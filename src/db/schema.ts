@@ -15,6 +15,8 @@ export const users = pgTable("users", {
     twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     verificationCode: text("verification_code"),
     verificationCodeExpiry: timestamp("verification_code_expiry", { mode: "date" }),
+    loginOTP: text("login_otp"),
+    loginOTPExpiry: timestamp("login_otp_expiry", { mode: "date" }),
     isVerified: boolean("is_verified").notNull().default(false),
     isOnboarded: boolean("is_onboarded").notNull().default(false),
     isOnline: boolean("is_online").notNull().default(false),

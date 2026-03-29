@@ -10,7 +10,7 @@ import {
     getUserById,
     updateUser,
 } from "../db/queries";
-import { sendVerificationEmail } from "../lib/mailer";
+import { sendVerificationEmail, sendLoginOTPEmail } from "../lib/mailer";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
 
@@ -85,9 +85,6 @@ export const verifyEmail = async (req: Request, res: Response) => {
             res.status(404).json({ success: false, message: "User not found" });
             return;
         }
-
-        console.log("DB code:", user.verificationCode);
-        console.log("Submitted code:", code);
 
         if (!user.verificationCode) {
             res.status(400).json({ success: false, message: "No verification code found. Please register again." });
@@ -184,11 +181,115 @@ export const verify2FA = async (req: Request, res: Response) => {
         console.error("2FA verify error:", error);
         res.status(500).json({ success: false, message: "Internal server error" });
     }
-}
+};
+
+export const sendLoginOTP = async (req: Request, res: Response) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            res.status(400).json({ success: false, message: "Email and password are required" });
+            return;
+        }
+
+        const user = await getUserByEmail(email);
+        if (!user) {
+            // Don't reveal if email exists
+            res.status(200).json({ success: true, message: "If that email exists, a code was sent." });
+            return;
+        }
+
+        if (!user.isVerified) {
+            res.status(401).json({ success: false, message: "Please verify your email first" });
+            return;
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        if (!isPasswordValid) {
+            res.status(401).json({ success: false, message: "Invalid credentials" });
+            return;
+        }
+
+        const loginOTP = Math.floor(100000 + Math.random() * 900000).toString();
+        const loginOTPExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+        await updateUser(user.id, { loginOTP, loginOTPExpiry });
+
+        await sendLoginOTPEmail(user.email, loginOTP, user.name);
+
+        res.status(200).json({
+            success: true,
+            message: "Login code sent to your email",
+            data: {
+                requiresTwoFactor: user.twoFactorEnabled,
+            },
+        });
+    } catch (error) {
+        console.error("Send login OTP error:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+export const verifyLoginOTP = async (req: Request, res: Response) => {
+    try {
+        const { email, loginOTP, twoFactorCode, pushToken } = req.body;
+
+        if (!email || !loginOTP) {
+            res.status(400).json({ success: false, message: "Email and OTP are required" });
+            return;
+        }
+
+        const user = await getUserByEmail(email);
+        if (!user) {
+            res.status(401).json({ success: false, message: "Invalid credentials" });
+            return;
+        }
+
+        if (!user.loginOTP || user.loginOTP !== loginOTP) {
+            res.status(401).json({ success: false, message: "Invalid login code" });
+            return;
+        }
+
+        if (!user.loginOTPExpiry || user.loginOTPExpiry < new Date()) {
+            res.status(401).json({ success: false, message: "Login code has expired" });
+            return;
+        }
+
+        if (user.twoFactorEnabled) {
+            if (!twoFactorCode) {
+                res.status(400).json({ success: false, message: "2FA code is required" });
+                return;
+            }
+            const isValid = authenticator.verify({ token: twoFactorCode, secret: user.twoFactorSecret! });
+            if (!isValid) {
+                res.status(401).json({ success: false, message: "Invalid 2FA code" });
+                return;
+            }
+        }
+
+        // Clear OTP after successful use
+        await updateUser(user.id, { loginOTP: null, loginOTPExpiry: null });
+
+        const accessToken = generateAccessToken(user.id);
+        const refreshToken = generateRefreshToken(user.id);
+
+        await updateRefreshToken(user.id, refreshToken);
+        if (pushToken) await updatePushToken(user.id, pushToken);
+
+        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, twoFactorSecret: _____, loginOTP: ______, loginOTPExpiry: _______, ...safeUser } = user;
+
+        res.status(200).json({
+            success: true,
+            data: { user: safeUser, accessToken, refreshToken },
+        });
+    } catch (error) {
+        console.error("Verify login OTP error:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
 
 export const login = async (req: Request, res: Response) => {
     try {
-        console.log("Login body:", req.body);
         const { email, password, pushToken, twoFactorCode } = req.body;
 
         if (!email || !password) {
