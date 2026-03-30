@@ -17,6 +17,7 @@ export const createMyNote = async (req: Request, res: Response) => {
             songAlbumArt,
             songPreviewUrl,
             songClipStartMs,
+            songTrackId,
         } = req.body;
 
         if (!content && !songTitle) {
@@ -32,6 +33,7 @@ export const createMyNote = async (req: Request, res: Response) => {
             songAlbumArt: songAlbumArt ?? null,
             songPreviewUrl: songPreviewUrl ?? null,
             songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
+            songTrackId: songTrackId ? Number(songTrackId) : null,
         });
 
         res.status(201).json({ success: true, data: { note } });
@@ -73,6 +75,7 @@ export const updateMyNote = async (req: Request, res: Response) => {
             songAlbumArt,
             songPreviewUrl,
             songClipStartMs,
+            songTrackId,
         } = req.body;
 
         const existing = await getNoteByUserId(userId);
@@ -88,6 +91,7 @@ export const updateMyNote = async (req: Request, res: Response) => {
             songAlbumArt: songAlbumArt ?? null,
             songPreviewUrl: songPreviewUrl ?? null,
             songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
+            songTrackId: songTrackId ? Number(songTrackId) : null,
         });
 
         res.status(200).json({ success: true, data: { note } });
@@ -123,6 +127,7 @@ export const upsertMyNote = async (req: Request, res: Response) => {
             songAlbumArt,
             songPreviewUrl,
             songClipStartMs,
+            songTrackId,
         } = req.body;
 
         if (!content && !songTitle) {
@@ -140,6 +145,7 @@ export const upsertMyNote = async (req: Request, res: Response) => {
                 songAlbumArt: songAlbumArt ?? null,
                 songPreviewUrl: songPreviewUrl ?? null,
                 songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
+                songTrackId: songTrackId ? Number(songTrackId) : null,
             });
             res.status(200).json({ success: true, data: { note } });
         } else {
@@ -151,6 +157,7 @@ export const upsertMyNote = async (req: Request, res: Response) => {
                 songAlbumArt: songAlbumArt ?? null,
                 songPreviewUrl: songPreviewUrl ?? null,
                 songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
+                songTrackId: songTrackId ? Number(songTrackId) : null,
             });
             res.status(201).json({ success: true, data: { note } });
         }
