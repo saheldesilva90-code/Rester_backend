@@ -17,7 +17,6 @@ export const createMyNote = async (req: Request, res: Response) => {
             songAlbumArt,
             songPreviewUrl,
             songClipStartMs,
-            songTrackId,
         } = req.body;
 
         if (!content && !songTitle) {
@@ -33,7 +32,6 @@ export const createMyNote = async (req: Request, res: Response) => {
             songAlbumArt: songAlbumArt ?? null,
             songPreviewUrl: songPreviewUrl ?? null,
             songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
-            songTrackId: songTrackId ? Number(songTrackId) : null,
         });
 
         res.status(201).json({ success: true, data: { note } });
@@ -75,7 +73,6 @@ export const updateMyNote = async (req: Request, res: Response) => {
             songAlbumArt,
             songPreviewUrl,
             songClipStartMs,
-            songTrackId,
         } = req.body;
 
         const existing = await getNoteByUserId(userId);
@@ -91,7 +88,6 @@ export const updateMyNote = async (req: Request, res: Response) => {
             songAlbumArt: songAlbumArt ?? null,
             songPreviewUrl: songPreviewUrl ?? null,
             songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
-            songTrackId: songTrackId ? Number(songTrackId) : null,
         });
 
         res.status(200).json({ success: true, data: { note } });
@@ -127,7 +123,6 @@ export const upsertMyNote = async (req: Request, res: Response) => {
             songAlbumArt,
             songPreviewUrl,
             songClipStartMs,
-            songTrackId,
         } = req.body;
 
         if (!content && !songTitle) {
@@ -145,7 +140,6 @@ export const upsertMyNote = async (req: Request, res: Response) => {
                 songAlbumArt: songAlbumArt ?? null,
                 songPreviewUrl: songPreviewUrl ?? null,
                 songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
-                songTrackId: songTrackId ? Number(songTrackId) : null,
             });
             res.status(200).json({ success: true, data: { note } });
         } else {
@@ -157,12 +151,11 @@ export const upsertMyNote = async (req: Request, res: Response) => {
                 songAlbumArt: songAlbumArt ?? null,
                 songPreviewUrl: songPreviewUrl ?? null,
                 songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
-                songTrackId: songTrackId ? Number(songTrackId) : null,
             });
             res.status(201).json({ success: true, data: { note } });
         }
-    } catch (error: any) {
-        console.error("Upsert note error DETAILS:", error?.message ?? error);
-        res.status(500).json({ success: false, message: error?.message ?? "Internal server error" });
+    } catch (error) {
+        console.error("Upsert note error:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
