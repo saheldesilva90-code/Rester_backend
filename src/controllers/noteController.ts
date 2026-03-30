@@ -161,8 +161,8 @@ export const upsertMyNote = async (req: Request, res: Response) => {
             });
             res.status(201).json({ success: true, data: { note } });
         }
-    } catch (error) {
-        console.error("Upsert note error:", error);
-        res.status(500).json({ success: false, message: "Internal server error" });
+    } catch (error: any) {
+        console.error("Upsert note error DETAILS:", error?.message ?? error);
+        res.status(500).json({ success: false, message: error?.message ?? "Internal server error" });
     }
 };
