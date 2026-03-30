@@ -130,6 +130,7 @@ export const notes = pgTable("notes", {
     songAlbumArt: text("song_album_art"),
     songPreviewUrl: text("song_preview_url"),
     songClipStartMs: text("song_clip_start_ms"),
+    songTrackId: integer("song_track_id"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" })
         .notNull()
