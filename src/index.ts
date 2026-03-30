@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import friendRequestRoutes from "./routes/friend-request.routes";
 import friendRoutes from "./routes/friend.routes";
+import noteRoutes from "./routes/note.routes";
 import conversationRoutes from "./routes/conversation.routes";
 import messageRoutes from "./routes/message.routes";
 import { globalRateLimit } from "./middleware/rate-limit.middleware";
@@ -38,6 +39,7 @@ app.use("/api/friend-requests", friendRequestRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/notes", noteRoutes);
 
 app.listen(PORT, () => {
     console.log(`Rester API is up and running PORT ${PORT}`);

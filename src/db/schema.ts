@@ -119,6 +119,28 @@ export const friends = pgTable("friends", {
     uniqueFriendship: uniqueIndex("unique_friendship").on(table.userId, table.friendId),
 }));
 
+export const notes = pgTable("notes", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content"),
+    songTitle: text("song_title"),
+    songArtist: text("song_artist"),
+    songAlbumArt: text("song_album_art"),
+    songPreviewUrl: text("song_preview_url"),
+    songClipStartMs: text("song_clip_start_ms"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+        .notNull()
+        .defaultNow()
+        .$onUpdate(() => new Date()),
+});
+
+export const notesRelations = relations(notes, ({ one }) => ({
+    user: one(users, { fields: [notes.userId], references: [users.id] }),
+}));
+
 export const usersRelations = relations(users, ({ many }) => ({
     conversationMembers: many(conversationMembers),
     sentMessages: many(messages),
@@ -127,6 +149,7 @@ export const usersRelations = relations(users, ({ many }) => ({
     sentFriendRequests: many(friendRequests, { relationName: "sentFriendRequests" }),
     receivedFriendRequests: many(friendRequests, { relationName: "receivedFriendRequests" }),
     friends: many(friends),
+    notes: many(notes),
 }));
 
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({
@@ -187,3 +210,5 @@ export type FriendRequest = typeof friendRequests.$inferSelect;
 export type NewFriendRequest = typeof friendRequests.$inferInsert;
 export type Friend = typeof friends.$inferSelect;
 export type NewFriend = typeof friends.$inferInsert;
+export type Note = typeof notes.$inferSelect;
+export type NewNote = typeof notes.$inferInsert;

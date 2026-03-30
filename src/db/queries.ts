@@ -8,6 +8,8 @@ import {
     messageReadReceipts,
     friendRequests,
     friends,
+    notes,
+    type NewNote,
     type NewUser,
     type NewConversation,
     type NewConversationMember,
@@ -187,6 +189,41 @@ export const removeFriend = async (userAId: string, userBId: string) => {
         )
         .returning();
     return removed;
+};
+
+export const createNote = async (data: NewNote) => {
+    const [note] = await db.insert(notes).values(data).returning();
+    return note;
+};
+
+export const getNoteById = async (id: string) => {
+    return db.query.notes.findFirst({
+        where: eq(notes.id, id),
+        with: { user: true },
+    });
+};
+
+export const getNoteByUserId = async (userId: string) => {
+    return db.query.notes.findFirst({
+        where: eq(notes.userId, userId),
+        with: { user: true },
+        orderBy: (notes, { desc }) => [desc(notes.createdAt)],
+    });
+};
+
+export const updateNote = async (id: string, data: Partial<NewNote>) => {
+    const existing = await getNoteById(id);
+    if (!existing) throw new Error(`Note with id ${id} not found`);
+    const [note] = await db.update(notes).set(data).where(eq(notes.id, id)).returning();
+    return note;
+};
+
+export const deleteNote = async (id: string, userId: string) => {
+    const existing = await getNoteById(id);
+    if (!existing) throw new Error(`Note with id ${id} not found`);
+    if (existing.userId !== userId) throw new Error("You can only delete your own notes");
+    const [note] = await db.delete(notes).where(eq(notes.id, id)).returning();
+    return note;
 };
 
 export const createConversation = async (
