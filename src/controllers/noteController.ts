@@ -1,54 +1,33 @@
 import { Request, Response } from "express";
 import {
     createNote,
-    getNoteById,
     getNoteByUserId,
     updateNote,
     deleteNote,
 } from "../db/queries";
 
-export const createMyNote = async (req: Request, res: Response) => {
-    try {
-        const userId = req.user.id;
-        const {
-            content,
-            songTitle,
-            songArtist,
-            songAlbumArt,
-            songPreviewUrl,
-            songClipStartMs,
-            songTrackId,
-            songAudioUrl,
-        } = req.body;
+// ─── Helper ───────────────────────────────────────────────────────────────────
+// Extracts only the fields we actually store.
+// songAudioUrl is intentionally removed — we no longer store or use it.
+// songPreviewUrl is kept so existing notes that have it don't break,
+// but it is never used for playback (frontend always calls /api/audio/url/:trackId).
+function extractNoteFields(body: any) {
+    return {
+        content: body.content ?? null,
+        songTitle: body.songTitle ?? null,
+        songArtist: body.songArtist ?? null,
+        songAlbumArt: body.songAlbumArt ?? null,
+        songPreviewUrl: body.songPreviewUrl ?? null,
+        songClipStartMs: body.songClipStartMs ? String(body.songClipStartMs) : null,
+        songTrackId: body.songTrackId ?? null,
+    };
+}
 
-        if (!content && !songTitle) {
-            res.status(400).json({ success: false, message: "Note must have text or a song" });
-            return;
-        }
-
-        const note = await createNote({
-            userId,
-            content: content ?? null,
-            songTitle: songTitle ?? null,
-            songArtist: songArtist ?? null,
-            songAlbumArt: songAlbumArt ?? null,
-            songPreviewUrl: songPreviewUrl ?? null,
-            songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
-            songTrackId: songTrackId ?? null,
-            songAudioUrl: songAudioUrl ?? null,
-        });
-
-        res.status(201).json({ success: true, data: { note } });
-    } catch (error) {
-        console.error("Create note error:", error);
-        res.status(500).json({ success: false, message: "Internal server error" });
-    }
-};
+// ─── Controllers ──────────────────────────────────────────────────────────────
 
 export const getMyNote = async (req: Request, res: Response) => {
     try {
-        const userId = req.user.id;
-        const note = await getNoteByUserId(userId);
+        const note = await getNoteByUserId(req.user.id);
         res.status(200).json({ success: true, data: { note } });
     } catch (error) {
         console.error("Get note error:", error);
@@ -58,8 +37,7 @@ export const getMyNote = async (req: Request, res: Response) => {
 
 export const getUserNote = async (req: Request, res: Response) => {
     try {
-        const userId = String(req.params.userId);
-        const note = await getNoteByUserId(userId);
+        const note = await getNoteByUserId(String(req.params.userId));
         res.status(200).json({ success: true, data: { note } });
     } catch (error) {
         console.error("Get user note error:", error);
@@ -67,40 +45,27 @@ export const getUserNote = async (req: Request, res: Response) => {
     }
 };
 
-export const updateMyNote = async (req: Request, res: Response) => {
+export const upsertMyNote = async (req: Request, res: Response) => {
     try {
         const userId = req.user.id;
-        const {
-            content,
-            songTitle,
-            songArtist,
-            songAlbumArt,
-            songPreviewUrl,
-            songClipStartMs,
-            songTrackId,
-            songAudioUrl,
-        } = req.body;
+        const fields = extractNoteFields(req.body);
 
-        const existing = await getNoteByUserId(userId);
-        if (!existing) {
-            res.status(404).json({ success: false, message: "Note not found" });
+        if (!fields.content && !fields.songTitle) {
+            res.status(400).json({ success: false, message: "Note must have text or a song" });
             return;
         }
 
-        const note = await updateNote(existing.id, {
-            content: content ?? null,
-            songTitle: songTitle ?? null,
-            songArtist: songArtist ?? null,
-            songAlbumArt: songAlbumArt ?? null,
-            songPreviewUrl: songPreviewUrl ?? null,
-            songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
-            songTrackId: songTrackId ?? null,
-            songAudioUrl: songAudioUrl ?? null,
-        });
+        const existing = await getNoteByUserId(userId);
 
-        res.status(200).json({ success: true, data: { note } });
+        if (existing) {
+            const note = await updateNote(existing.id, fields);
+            res.status(200).json({ success: true, data: { note } });
+        } else {
+            const note = await createNote({ userId, ...fields });
+            res.status(201).json({ success: true, data: { note } });
+        }
     } catch (error) {
-        console.error("Update note error:", error);
+        console.error("Upsert note error:", error);
         res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
@@ -117,59 +82,6 @@ export const deleteMyNote = async (req: Request, res: Response) => {
         res.status(200).json({ success: true, message: "Note deleted" });
     } catch (error) {
         console.error("Delete note error:", error);
-        res.status(500).json({ success: false, message: "Internal server error" });
-    }
-};
-
-export const upsertMyNote = async (req: Request, res: Response) => {
-    try {
-        const userId = req.user.id;
-        const {
-            content,
-            songTitle,
-            songArtist,
-            songAlbumArt,
-            songPreviewUrl,
-            songClipStartMs,
-            songTrackId,
-            songAudioUrl,
-        } = req.body;
-
-        if (!content && !songTitle) {
-            res.status(400).json({ success: false, message: "Note must have text or a song" });
-            return;
-        }
-
-        const existing = await getNoteByUserId(userId);
-
-        if (existing) {
-            const note = await updateNote(existing.id, {
-                content: content ?? null,
-                songTitle: songTitle ?? null,
-                songArtist: songArtist ?? null,
-                songAlbumArt: songAlbumArt ?? null,
-                songPreviewUrl: songPreviewUrl ?? null,
-                songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
-                songTrackId: songTrackId ?? null,
-                songAudioUrl: songAudioUrl ?? null,
-            });
-            res.status(200).json({ success: true, data: { note } });
-        } else {
-            const note = await createNote({
-                userId,
-                content: content ?? null,
-                songTitle: songTitle ?? null,
-                songArtist: songArtist ?? null,
-                songAlbumArt: songAlbumArt ?? null,
-                songPreviewUrl: songPreviewUrl ?? null,
-                songClipStartMs: songClipStartMs ? String(songClipStartMs) : null,
-                songTrackId: songTrackId ?? null,
-                songAudioUrl: songAudioUrl ?? null,
-            });
-            res.status(201).json({ success: true, data: { note } });
-        }
-    } catch (error) {
-        console.error("Upsert note error:", error);
         res.status(500).json({ success: false, message: "Internal server error" });
     }
 };

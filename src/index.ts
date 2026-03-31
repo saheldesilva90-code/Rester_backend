@@ -41,7 +41,7 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/notes", noteRoutes);
-app.use("/api/audio", audioRouter)
+app.use("/api/audio", audioRouter);
 
 app.listen(PORT, () => {
     console.log(`Rester API is up and running PORT ${PORT}`);
