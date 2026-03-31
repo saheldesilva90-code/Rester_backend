@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, bigint } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const users = pgTable("users", {
@@ -130,7 +130,7 @@ export const notes = pgTable("notes", {
     songAlbumArt: text("song_album_art"),
     songPreviewUrl: text("song_preview_url"),
     songClipStartMs: text("song_clip_start_ms"),
-    songTrackId: integer("song_track_id"),
+    songTrackId: bigint("song_track_id", { mode: "number" }),
     songAudioUrl: text("song_audio_url"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" })
