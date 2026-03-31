@@ -6,11 +6,9 @@ import {
     deleteNote,
 } from "../db/queries";
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-// Extracts only the fields we actually store.
-// songAudioUrl is intentionally removed — we no longer store or use it.
-// songPreviewUrl is kept so existing notes that have it don't break,
-// but it is never used for playback (frontend always calls /api/audio/url/:trackId).
+// Only fields that actually exist in the schema and are needed.
+// songAudioUrl is intentionally excluded — we never write it.
+// songPreviewUrl is kept so it saves to DB (harmless, never used for playback).
 function extractNoteFields(body: any) {
     return {
         content: body.content ?? null,
@@ -19,11 +17,9 @@ function extractNoteFields(body: any) {
         songAlbumArt: body.songAlbumArt ?? null,
         songPreviewUrl: body.songPreviewUrl ?? null,
         songClipStartMs: body.songClipStartMs ? String(body.songClipStartMs) : null,
-        songTrackId: body.songTrackId ?? null,
+        songTrackId: body.songTrackId ? Number(body.songTrackId) : null,
     };
 }
-
-// ─── Controllers ──────────────────────────────────────────────────────────────
 
 export const getMyNote = async (req: Request, res: Response) => {
     try {
