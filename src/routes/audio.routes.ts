@@ -6,7 +6,7 @@ const router = Router();
 // In-memory cache — prevents hammering Deezer on every open
 // trackId -> { url, fetchedAt }
 const urlCache = new Map<number, { url: string; fetchedAt: number }>();
-const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
+const CACHE_TTL_MS = 2 * 60 * 1000; // 20 minutes
 
 async function getFreshDeezerUrl(trackId: number): Promise<string | null> {
     const cached = urlCache.get(trackId);
