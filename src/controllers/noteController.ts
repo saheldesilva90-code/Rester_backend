@@ -6,9 +6,6 @@ import {
     deleteNote,
 } from "../db/queries";
 
-// Only fields that actually exist in the schema and are needed.
-// songAudioUrl is intentionally excluded — we never write it.
-// songPreviewUrl is kept so it saves to DB (harmless, never used for playback).
 function extractNoteFields(body: any) {
     return {
         content: body.content ?? null,
@@ -18,6 +15,7 @@ function extractNoteFields(body: any) {
         songPreviewUrl: body.songPreviewUrl ?? null,
         songClipStartMs: body.songClipStartMs ? String(body.songClipStartMs) : null,
         songTrackId: body.songTrackId ? Number(body.songTrackId) : null,
+        songAudioUrl: body.songAudioUrl ?? null,
     };
 }
 
