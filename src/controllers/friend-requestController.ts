@@ -150,7 +150,7 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
             .returning();
 
         sendPushNotification(receiver?.pushToken, {
-            title: "New Friend Request 👋",
+            title: "New Friend Request",
             body: `${sender?.name ?? "Someone"} sent you a friend request`,
             sound: "default",
             data: {

@@ -31,11 +31,11 @@ export const register = async (req: Request, res: Response) => {
             return;
         }
 
-        const existingUser = await getUserByEmail(email);
-        if (existingUser) {
-            res.status(409).json({ success: false, message: "Email already in use" });
-            return;
-        }
+        // const existingUser = await getUserByEmail(email);
+        // if (existingUser) {
+        //     res.status(409).json({ success: false, message: "Email already in use" });
+        //     return;
+        // }
 
         const passwordHash = await bcrypt.hash(password, 10);
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
