@@ -88,3 +88,41 @@ export const getUserProfile = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
+
+/**
+ * POST /api/users/push-token
+ * Saves or refreshes the device's Expo push token for the authenticated user.
+ * Called automatically by the frontend on app load via registerPushToken().
+ */
+export const savePushToken = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user.id;
+        const { token } = req.body;
+
+        if (!token || typeof token !== "string") {
+            return res.status(400).json({
+                success: false,
+                message: "token is required",
+            });
+        }
+
+        const updated = await updateUser(userId, { pushToken: token });
+
+        const {
+            passwordHash: _,
+            refreshToken: __,
+            verificationCode: ___,
+            verificationCodeExpiry: ____,
+            twoFactorSecret: _____,
+            ...safeUser
+        } = updated;
+
+        return res.status(200).json({ success: true, data: { user: safeUser } });
+    } catch (error) {
+        console.error("savePushToken error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};

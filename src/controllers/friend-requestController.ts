@@ -1,29 +1,38 @@
 import { eq, and, or } from "drizzle-orm";
 import { db } from "../db";
 import { checkFriendship } from "../db/queries";
-import { friendRequests, friends } from "../db/schema";
+import { friendRequests, friends, users } from "../db/schema";
 import { Request, Response } from "express";
+import { Expo, ExpoPushMessage } from "expo-server-sdk";
 
-/**
- * NOTE:
- * Make sure you have extended Express Request type globally:
- * 
- * declare namespace Express {
- *   interface User {
- *     id: string;
- *   }
- *   interface Request {
- *     user: User;
- *   }
- * }
- */
+const expo = new Expo();
+
+async function sendPushNotification(
+    pushToken: string | null | undefined,
+    message: Omit<ExpoPushMessage, "to">
+) {
+    if (!pushToken || !Expo.isExpoPushToken(pushToken)) return;
+
+    try {
+        const chunks = expo.chunkPushNotifications([{ to: pushToken, ...message }]);
+        for (const chunk of chunks) {
+            const tickets = await expo.sendPushNotificationsAsync(chunk);
+            tickets.forEach((ticket) => {
+                if (ticket.status === "error") {
+                    console.warn("Push notification error:", ticket.message, ticket.details);
+                }
+            });
+        }
+    } catch (err) {
+        console.warn("sendPushNotification failed:", err);
+    }
+}
 
 export const getFriendStatus = async (req: Request, res: Response) => {
     try {
         const currentUserId = req.user.id;
         const otherUserId = String(req.params.userId);
 
-        // Check if already friends
         const friendship = await checkFriendship(currentUserId, otherUserId);
         if (friendship) {
             return res.status(200).json({
@@ -32,7 +41,6 @@ export const getFriendStatus = async (req: Request, res: Response) => {
             });
         }
 
-        // Check for existing request (both directions)
         const request = await db.query.friendRequests.findFirst({
             where: or(
                 and(
@@ -61,10 +69,7 @@ export const getFriendStatus = async (req: Request, res: Response) => {
 
             return res.status(200).json({
                 success: true,
-                data: {
-                    status,
-                    requestId: request.id,
-                },
+                data: { status, requestId: request.id },
             });
         }
 
@@ -72,7 +77,6 @@ export const getFriendStatus = async (req: Request, res: Response) => {
             success: true,
             data: { status: "none" },
         });
-
     } catch (error) {
         console.error("getFriendStatus error:", error);
         return res.status(500).json({
@@ -101,7 +105,6 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
             });
         }
 
-        // Already friends?
         const existingFriendship = await checkFriendship(senderId, receiverId);
         if (existingFriendship) {
             return res.status(400).json({
@@ -110,7 +113,6 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
             });
         }
 
-        // Existing request?
         const existingRequest = await db.query.friendRequests.findFirst({
             where: or(
                 and(
@@ -131,20 +133,38 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
             });
         }
 
+        const [sender, receiver] = await Promise.all([
+            db.query.users.findFirst({
+                where: eq(users.id, senderId),
+                columns: { name: true },
+            }),
+            db.query.users.findFirst({
+                where: eq(users.id, receiverId),
+                columns: { pushToken: true },
+            }),
+        ]);
+
         const [newRequest] = await db
             .insert(friendRequests)
-            .values({
-                senderId,
-                receiverId,
-                status: "pending",
-            })
+            .values({ senderId, receiverId, status: "pending" })
             .returning();
+
+        sendPushNotification(receiver?.pushToken, {
+            title: "New Friend Request 👋",
+            body: `${sender?.name ?? "Someone"} sent you a friend request`,
+            sound: "default",
+            data: {
+                type: "FRIEND_REQUEST",
+                requestId: newRequest.id,
+                senderId,
+                senderName: sender?.name ?? "",
+            },
+        });
 
         return res.status(201).json({
             success: true,
             data: newRequest,
         });
-
     } catch (error) {
         console.error("sendFriendRequest error:", error);
         return res.status(500).json({
@@ -170,7 +190,6 @@ export const cancelFriendRequest = async (req: Request, res: Response) => {
             });
         }
 
-        // Only sender can cancel
         if (request.senderId !== currentUserId) {
             return res.status(403).json({
                 success: false,
@@ -178,14 +197,9 @@ export const cancelFriendRequest = async (req: Request, res: Response) => {
             });
         }
 
-        await db
-            .delete(friendRequests)
-            .where(eq(friendRequests.id, requestId));
+        await db.delete(friendRequests).where(eq(friendRequests.id, requestId));
 
-        return res.status(200).json({
-            success: true,
-        });
-
+        return res.status(200).json({ success: true });
     } catch (error) {
         console.error("cancelFriendRequest error:", error);
         return res.status(500).json({
@@ -211,7 +225,6 @@ export const acceptFriendRequest = async (req: Request, res: Response) => {
             });
         }
 
-        // Only receiver can accept
         if (request.receiverId !== currentUserId) {
             return res.status(403).json({
                 success: false,
@@ -226,7 +239,6 @@ export const acceptFriendRequest = async (req: Request, res: Response) => {
             });
         }
 
-        // Prevent duplicate friendships
         const alreadyFriends = await checkFriendship(
             request.senderId,
             request.receiverId
@@ -238,6 +250,17 @@ export const acceptFriendRequest = async (req: Request, res: Response) => {
                 message: "Already friends",
             });
         }
+
+        const [acceptor, originalSender] = await Promise.all([
+            db.query.users.findFirst({
+                where: eq(users.id, currentUserId),
+                columns: { name: true },
+            }),
+            db.query.users.findFirst({
+                where: eq(users.id, request.senderId),
+                columns: { pushToken: true },
+            }),
+        ]);
 
         await db.transaction(async (tx) => {
             await tx.insert(friends).values([
@@ -258,10 +281,18 @@ export const acceptFriendRequest = async (req: Request, res: Response) => {
                 .where(eq(friendRequests.id, requestId));
         });
 
-        return res.status(200).json({
-            success: true,
+        sendPushNotification(originalSender?.pushToken, {
+            title: "Friend Request Accepted",
+            body: `${acceptor?.name ?? "Someone"} accepted your friend request`,
+            sound: "default",
+            data: {
+                type: "FRIEND_REQUEST_ACCEPTED",
+                acceptorId: currentUserId,
+                acceptorName: acceptor?.name ?? "",
+            },
         });
 
+        return res.status(200).json({ success: true });
     } catch (error) {
         console.error("acceptFriendRequest error:", error);
         return res.status(500).json({
