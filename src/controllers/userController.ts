@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
 import { updateUser, getUserById } from "../db/queries";
+import { db } from "../db";
+import { users } from "../db/schema";
+import { ilike } from "drizzle-orm";
 
 export const updateMe = async (req: Request, res: Response) => {
     try {
@@ -39,5 +42,36 @@ export const getMe = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Get me error:", error);
         res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+// Add this to your existing userController.ts
+
+export const searchUsers = async (req: Request, res: Response) => {
+    try {
+        const currentUserId = req.user.id;
+        const q = (req.query.q as string ?? "").trim();
+
+        if (!q) {
+            return res.status(200).json({ success: true, data: { users: [] } });
+        }
+
+        const results = await db
+            .select({
+                id: users.id,
+                name: users.name,
+                imageUrl: users.imageUrl,
+                isOnline: users.isOnline,
+            })
+            .from(users)
+            .where(ilike(users.name, `%${q}%`))
+            .limit(20);
+
+        const filtered = results.filter((u) => u.id !== currentUserId);
+
+        return res.status(200).json({ success: true, data: { users: filtered } });
+    } catch (error) {
+        console.error("Search users error:", error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
