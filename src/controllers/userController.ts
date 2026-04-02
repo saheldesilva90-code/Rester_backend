@@ -45,8 +45,6 @@ export const getMe = async (req: Request, res: Response) => {
     }
 };
 
-// Add this to your existing userController.ts
-
 export const searchUsers = async (req: Request, res: Response) => {
     try {
         const currentUserId = req.user.id;
@@ -73,5 +71,20 @@ export const searchUsers = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Search users error:", error);
         return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+export const getUserProfile = async (req: Request, res: Response) => {
+    try {
+        const userId = String(req.params.userId);
+        const user = await getUserById(userId);
+        if (!user) {
+            res.status(404).json({ success: false, message: "User not found" });
+            return;
+        }
+        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, twoFactorSecret: _____, ...safeUser } = user;
+        res.status(200).json({ success: true, data: { user: safeUser } });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
