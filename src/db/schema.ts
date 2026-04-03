@@ -111,9 +111,7 @@ export const friends = pgTable("friends", {
     friendId: uuid("friend_id")
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
-    friendRequestId: uuid("friend_request_id")
-        .notNull()
-        .references(() => friendRequests.id, { onDelete: "cascade" }),
+    friendRequestId: uuid("friend_request_id"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => ({
     uniqueFriendship: uniqueIndex("unique_friendship").on(table.userId, table.friendId),
