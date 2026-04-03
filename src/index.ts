@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { ENV } from "./config/env";
+import { Server } from "socket.io";
+import { initSocket } from "./socket";
+import { createServer } from "http";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import friendRequestRoutes from "./routes/friend-request.routes";
@@ -14,6 +17,11 @@ import { globalRateLimit } from "./middleware/rate-limit.middleware";
 import { sanitizeMiddleware } from "./middleware/sanitize.middleware";
 
 const app = express();
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+    cors: { origin: "*" },
+});
 
 app.set("trust proxy", 1); // Remove before deployment
 
@@ -44,6 +52,8 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/audio", audioRouter);
+
+initSocket(io);
 
 app.listen(PORT, () => {
     console.log(`Rester API is up and running PORT ${PORT}`);

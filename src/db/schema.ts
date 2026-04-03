@@ -148,33 +148,60 @@ export const usersRelations = relations(users, ({ many }) => ({
     createdConversations: many(conversations),
     sentFriendRequests: many(friendRequests, { relationName: "sentFriendRequests" }),
     receivedFriendRequests: many(friendRequests, { relationName: "receivedFriendRequests" }),
-    friends: many(friends),
+    friends: many(friends, { relationName: "userFriends" }),
+    friendOf: many(friends, { relationName: "friendOf" }),
     notes: many(notes),
 }));
 
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({
     members: many(conversationMembers),
     messages: many(messages),
-    createdBy: one(users, { fields: [conversations.createdBy], references: [users.id] }),
+    createdByUser: one(users, { fields: [conversations.createdBy], references: [users.id] }),
     lastMessage: one(messages, { fields: [conversations.lastMessageId], references: [messages.id] }),
 }));
 
 export const conversationMembersRelations = relations(conversationMembers, ({ one }) => ({
-    conversation: one(conversations, { fields: [conversationMembers.conversationId], references: [conversations.id] }),
-    user: one(users, { fields: [conversationMembers.userId], references: [users.id] }),
-    lastReadMessage: one(messages, { fields: [conversationMembers.lastReadMessageId], references: [messages.id] }),
+    conversation: one(conversations, {
+        fields: [conversationMembers.conversationId],
+        references: [conversations.id],
+    }),
+    user: one(users, {
+        fields: [conversationMembers.userId],
+        references: [users.id],
+    }),
+    lastReadMessage: one(messages, {
+        fields: [conversationMembers.lastReadMessageId],
+        references: [messages.id],
+    }),
 }));
 
 export const messagesRelations = relations(messages, ({ one, many }) => ({
-    conversation: one(conversations, { fields: [messages.conversationId], references: [conversations.id] }),
-    sender: one(users, { fields: [messages.senderId], references: [users.id] }),
-    replyTo: one(messages, { fields: [messages.replyToId], references: [messages.id] }),
+    conversation: one(conversations, {
+        fields: [messages.conversationId],
+        references: [conversations.id],
+    }),
+    sender: one(users, {
+        fields: [messages.senderId],
+        references: [users.id],
+    }),
+    replyTo: one(messages, {
+        fields: [messages.replyToId],
+        references: [messages.id],
+        relationName: "messageReplies",
+    }),
+    replies: many(messages, { relationName: "messageReplies" }),
     readReceipts: many(messageReadReceipts),
 }));
 
 export const messageReadReceiptsRelations = relations(messageReadReceipts, ({ one }) => ({
-    message: one(messages, { fields: [messageReadReceipts.messageId], references: [messages.id] }),
-    user: one(users, { fields: [messageReadReceipts.userId], references: [users.id] }),
+    message: one(messages, {
+        fields: [messageReadReceipts.messageId],
+        references: [messages.id],
+    }),
+    user: one(users, {
+        fields: [messageReadReceipts.userId],
+        references: [users.id],
+    }),
 }));
 
 export const friendRequestsRelations = relations(friendRequests, ({ one }) => ({
@@ -191,9 +218,16 @@ export const friendRequestsRelations = relations(friendRequests, ({ one }) => ({
 }));
 
 export const friendsRelations = relations(friends, ({ one }) => ({
-    user: one(users, { fields: [friends.userId], references: [users.id] }),
-    friend: one(users, { fields: [friends.friendId], references: [users.id] }),
-    friendRequest: one(friendRequests, { fields: [friends.friendRequestId], references: [friendRequests.id] }),
+    user: one(users, {
+        fields: [friends.userId],
+        references: [users.id],
+        relationName: "userFriends",
+    }),
+    friend: one(users, {
+        fields: [friends.friendId],
+        references: [users.id],
+        relationName: "friendOf",
+    }),
 }));
 
 export type User = typeof users.$inferSelect;
