@@ -68,6 +68,7 @@ export const messages = pgTable("messages", {
     content: text("content"),
     imageUrl: text("image_url"),
     replyToId: uuid("reply_to_id"),
+    mediaType: text("media_type"),
     isDeleted: boolean("is_deleted").notNull().default(false),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" })

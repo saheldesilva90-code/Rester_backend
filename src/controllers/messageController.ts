@@ -9,8 +9,13 @@ export const sendMessage = async (req: Request, res: Response) => {
         const conversationId = String(req.params.conversationId);
         const { content, replyToId } = req.body;
 
-        if (!content?.trim()) {
-            return res.status(400).json({ success: false, message: "Content is required" });
+        const mediaUrl: string | null = (req.file as any)?.path ?? null;
+        const mediaType: "image" | "video" | null = req.file
+            ? req.file.mimetype.startsWith("video/") ? "video" : "image"
+            : null;
+
+        if (!content?.trim() && !mediaUrl) {
+            return res.status(400).json({ success: false, message: "Content or media is required" });
         }
 
         const membership = await db.query.conversationMembers.findFirst({
@@ -29,7 +34,9 @@ export const sendMessage = async (req: Request, res: Response) => {
             .values({
                 conversationId,
                 senderId: currentUserId,
-                content: content.trim(),
+                content: content?.trim() ?? null,
+                imageUrl: mediaUrl,
+                mediaType,
                 replyToId: replyToId ?? null,
             })
             .returning();

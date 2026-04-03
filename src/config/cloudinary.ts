@@ -9,7 +9,7 @@ cloudinary.config({
     api_secret: ENV.CLOUDINARY_API_SECRET!,
 });
 
-const storage = new CloudinaryStorage({
+const profileStorage = new CloudinaryStorage({
     cloudinary,
     params: {
         folder: "profile_pictures",
@@ -19,8 +19,41 @@ const storage = new CloudinaryStorage({
 });
 
 export const upload = multer({
-    storage,
+    storage: profileStorage,
     limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+const messageMediaStorage = new CloudinaryStorage({
+    cloudinary,
+    params: (req: any, file: Express.Multer.File) => {
+        const isVideo = file.mimetype.startsWith("video/");
+        return {
+            folder: "message_media",
+            resource_type: isVideo ? "video" : "image",
+            allowed_formats: isVideo
+                ? ["mp4", "mov", "avi", "webm"]
+                : ["jpg", "jpeg", "png", "webp", "gif"],
+            ...(isVideo ? {} : {
+                transformation: [{ width: 1200, crop: "limit" }],
+            }),
+        };
+    },
+});
+
+export const uploadMessageMedia = multer({
+    storage: messageMediaStorage,
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        const allowed = [
+            "image/jpeg", "image/png", "image/webp", "image/gif",
+            "video/mp4", "video/quicktime", "video/avi", "video/webm",
+        ];
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error("Unsupported file type"));
+        }
+    },
 });
 
 export { cloudinary };
