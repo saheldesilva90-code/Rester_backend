@@ -12,7 +12,6 @@ import friendRoutes from "./routes/friend.routes";
 import noteRoutes from "./routes/note.routes";
 import audioRouter from "./routes/audio.routes";
 import conversationRoutes from "./routes/conversation.routes";
-import messageRoutes from "./routes/message.routes";
 import { globalRateLimit } from "./middleware/rate-limit.middleware";
 import { sanitizeMiddleware } from "./middleware/sanitize.middleware";
 
@@ -23,22 +22,16 @@ const io = new Server(httpServer, {
     cors: { origin: "*" },
 });
 
-app.set("trust proxy", 1); // Remove before deployment
-
+app.set("trust proxy", 1);
 app.use(helmet());
-
 app.use(cors({ origin: ENV.APP_URL }));
-
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
-
 app.use(globalRateLimit);
-
 app.use(sanitizeMiddleware);
-
 app.disable("x-powered-by");
 
-const PORT = ENV.PORT || 3000;
+app.set("io", io);
 
 app.get("/", (req, res) => {
     res.json({ success: true });
@@ -49,12 +42,11 @@ app.use("/api/users", userRoutes);
 app.use("/api/friend-requests", friendRequestRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/conversations", conversationRoutes);
-app.use("/api/messages", messageRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/audio", audioRouter);
 
 initSocket(io);
 
-app.listen(PORT, () => {
-    console.log(`Rester API is up and running PORT ${PORT}`);
+httpServer.listen(ENV.PORT || 3000, () => {
+    console.log(`Server is running on PORT ${ENV.PORT || 3000}`);
 });
