@@ -3,11 +3,45 @@ import { updateUser, getUserById } from "../db/queries";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { ilike } from "drizzle-orm";
+import { cloudinary } from "../config/cloudinary";
+
+const sanitizeUser = (user: Record<string, any>) => {
+    const {
+        passwordHash: _,
+        refreshToken: __,
+        verificationCode: ___,
+        verificationCodeExpiry: ____,
+        twoFactorSecret: _____,
+        ...safeUser
+    } = user;
+    return safeUser;
+};
+
+const extractPublicId = (url: string): string | null => {
+    try {
+        const matches = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z]+$/);
+        return matches ? matches[1] : null;
+    } catch {
+        return null;
+    }
+};
 
 export const updateMe = async (req: Request, res: Response) => {
     try {
         const userId = req.user.id;
-        const { name, imageUrl, gender, dateOfBirth, isOnboarded, pushToken } = req.body;
+        const { name, gender, dateOfBirth, isOnboarded, pushToken } = req.body;
+
+        const imageUrl = req.file ? req.file.path : undefined;
+
+        if (imageUrl) {
+            const existingUser = await getUserById(userId);
+            if (existingUser?.imageUrl) {
+                const publicId = extractPublicId(existingUser.imageUrl);
+                if (publicId) {
+                    await cloudinary.uploader.destroy(publicId);
+                }
+            }
+        }
 
         const updated = await updateUser(userId, {
             ...(name !== undefined && { name }),
@@ -18,9 +52,7 @@ export const updateMe = async (req: Request, res: Response) => {
             ...(pushToken !== undefined && { pushToken }),
         });
 
-        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, ...safeUser } = updated;
-
-        res.status(200).json({ success: true, data: { user: safeUser } });
+        res.status(200).json({ success: true, data: { user: sanitizeUser(updated) } });
     } catch (error) {
         console.error("Update user error:", error);
         res.status(500).json({ success: false, message: "Internal server error" });
@@ -35,10 +67,7 @@ export const getMe = async (req: Request, res: Response) => {
             res.status(404).json({ success: false, message: "User not found" });
             return;
         }
-
-        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, twoFactorSecret: _____, ...safeUser } = user;
-
-        res.status(200).json({ success: true, data: { user: safeUser } });
+        res.status(200).json({ success: true, data: { user: sanitizeUser(user) } });
     } catch (error) {
         console.error("Get me error:", error);
         res.status(500).json({ success: false, message: "Internal server error" });
@@ -82,47 +111,26 @@ export const getUserProfile = async (req: Request, res: Response) => {
             res.status(404).json({ success: false, message: "User not found" });
             return;
         }
-        const { passwordHash: _, refreshToken: __, verificationCode: ___, verificationCodeExpiry: ____, twoFactorSecret: _____, ...safeUser } = user;
-        res.status(200).json({ success: true, data: { user: safeUser } });
+        res.status(200).json({ success: true, data: { user: sanitizeUser(user) } });
     } catch (error) {
         res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
 
-/**
- * POST /api/users/push-token
- * Saves or refreshes the device's Expo push token for the authenticated user.
- * Called automatically by the frontend on app load via registerPushToken().
- */
 export const savePushToken = async (req: Request, res: Response) => {
     try {
         const userId = req.user.id;
         const { token } = req.body;
 
         if (!token || typeof token !== "string") {
-            return res.status(400).json({
-                success: false,
-                message: "token is required",
-            });
+            return res.status(400).json({ success: false, message: "token is required" });
         }
 
         const updated = await updateUser(userId, { pushToken: token });
 
-        const {
-            passwordHash: _,
-            refreshToken: __,
-            verificationCode: ___,
-            verificationCodeExpiry: ____,
-            twoFactorSecret: _____,
-            ...safeUser
-        } = updated;
-
-        return res.status(200).json({ success: true, data: { user: safeUser } });
+        return res.status(200).json({ success: true, data: { user: sanitizeUser(updated) } });
     } catch (error) {
         console.error("savePushToken error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
