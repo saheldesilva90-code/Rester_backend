@@ -1,3 +1,4 @@
+// friend-requestController.ts
 import { eq, and, or } from "drizzle-orm";
 import { db } from "../db";
 import { checkFriendship } from "../db/queries";
@@ -33,8 +34,21 @@ export const getFriendStatus = async (req: Request, res: Response) => {
         const currentUserId = req.user.id;
         const otherUserId = String(req.params.userId);
 
-        const friendship = await checkFriendship(currentUserId, otherUserId);
-        if (friendship) {
+        // ✅ Check friends table directly — don't rely solely on checkFriendship
+        const existingFriendship = await db.query.friends.findFirst({
+            where: or(
+                and(
+                    eq(friends.userId, currentUserId),
+                    eq(friends.friendId, otherUserId)
+                ),
+                and(
+                    eq(friends.userId, otherUserId),
+                    eq(friends.friendId, currentUserId)
+                )
+            ),
+        });
+
+        if (existingFriendship) {
             return res.status(200).json({
                 success: true,
                 data: { status: "friends" },
@@ -92,56 +106,39 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
         const { receiverId } = req.body;
 
         if (!receiverId) {
-            return res.status(400).json({
-                success: false,
-                message: "receiverId is required",
-            });
+            return res.status(400).json({ success: false, message: "receiverId is required" });
         }
 
         if (senderId === receiverId) {
-            return res.status(400).json({
-                success: false,
-                message: "Cannot send request to yourself",
-            });
+            return res.status(400).json({ success: false, message: "Cannot send request to yourself" });
         }
 
-        const existingFriendship = await checkFriendship(senderId, receiverId);
+        // ✅ Check friends table directly
+        const existingFriendship = await db.query.friends.findFirst({
+            where: or(
+                and(eq(friends.userId, senderId), eq(friends.friendId, receiverId)),
+                and(eq(friends.userId, receiverId), eq(friends.friendId, senderId))
+            ),
+        });
+
         if (existingFriendship) {
-            return res.status(400).json({
-                success: false,
-                message: "Already friends",
-            });
+            return res.status(400).json({ success: false, message: "Already friends" });
         }
 
         const existingRequest = await db.query.friendRequests.findFirst({
             where: or(
-                and(
-                    eq(friendRequests.senderId, senderId),
-                    eq(friendRequests.receiverId, receiverId)
-                ),
-                and(
-                    eq(friendRequests.senderId, receiverId),
-                    eq(friendRequests.receiverId, senderId)
-                )
+                and(eq(friendRequests.senderId, senderId), eq(friendRequests.receiverId, receiverId)),
+                and(eq(friendRequests.senderId, receiverId), eq(friendRequests.receiverId, senderId))
             ),
         });
 
         if (existingRequest) {
-            return res.status(400).json({
-                success: false,
-                message: "Friend request already exists",
-            });
+            return res.status(400).json({ success: false, message: "Friend request already exists" });
         }
 
         const [sender, receiver] = await Promise.all([
-            db.query.users.findFirst({
-                where: eq(users.id, senderId),
-                columns: { name: true },
-            }),
-            db.query.users.findFirst({
-                where: eq(users.id, receiverId),
-                columns: { pushToken: true },
-            }),
+            db.query.users.findFirst({ where: eq(users.id, senderId), columns: { name: true } }),
+            db.query.users.findFirst({ where: eq(users.id, receiverId), columns: { pushToken: true } }),
         ]);
 
         const [newRequest] = await db
@@ -161,16 +158,10 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
             },
         });
 
-        return res.status(201).json({
-            success: true,
-            data: newRequest,
-        });
+        return res.status(201).json({ success: true, data: newRequest });
     } catch (error) {
         console.error("sendFriendRequest error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
 
@@ -184,17 +175,11 @@ export const cancelFriendRequest = async (req: Request, res: Response) => {
         });
 
         if (!request) {
-            return res.status(404).json({
-                success: false,
-                message: "Friend request not found",
-            });
+            return res.status(404).json({ success: false, message: "Friend request not found" });
         }
 
         if (request.senderId !== currentUserId) {
-            return res.status(403).json({
-                success: false,
-                message: "Not authorized",
-            });
+            return res.status(403).json({ success: false, message: "Not authorized" });
         }
 
         await db.delete(friendRequests).where(eq(friendRequests.id, requestId));
@@ -202,10 +187,7 @@ export const cancelFriendRequest = async (req: Request, res: Response) => {
         return res.status(200).json({ success: true });
     } catch (error) {
         console.error("cancelFriendRequest error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
 
@@ -219,66 +201,41 @@ export const acceptFriendRequest = async (req: Request, res: Response) => {
         });
 
         if (!request) {
-            return res.status(404).json({
-                success: false,
-                message: "Friend request not found",
-            });
+            return res.status(404).json({ success: false, message: "Friend request not found" });
         }
 
         if (request.receiverId !== currentUserId) {
-            return res.status(403).json({
-                success: false,
-                message: "Not authorized",
-            });
+            return res.status(403).json({ success: false, message: "Not authorized" });
         }
 
         if (request.status !== "pending") {
-            return res.status(400).json({
-                success: false,
-                message: "Request is not pending",
-            });
+            return res.status(400).json({ success: false, message: "Request is not pending" });
         }
 
-        const alreadyFriends = await checkFriendship(
-            request.senderId,
-            request.receiverId
-        );
+        // ✅ Check friends table directly
+        const alreadyFriends = await db.query.friends.findFirst({
+            where: or(
+                and(eq(friends.userId, request.senderId), eq(friends.friendId, request.receiverId)),
+                and(eq(friends.userId, request.receiverId), eq(friends.friendId, request.senderId))
+            ),
+        });
 
         if (alreadyFriends) {
-            return res.status(400).json({
-                success: false,
-                message: "Already friends",
-            });
+            return res.status(400).json({ success: false, message: "Already friends" });
         }
 
         const [acceptor, originalSender] = await Promise.all([
-            db.query.users.findFirst({
-                where: eq(users.id, currentUserId),
-                columns: { name: true },
-            }),
-            db.query.users.findFirst({
-                where: eq(users.id, request.senderId),
-                columns: { pushToken: true },
-            }),
+            db.query.users.findFirst({ where: eq(users.id, currentUserId), columns: { name: true } }),
+            db.query.users.findFirst({ where: eq(users.id, request.senderId), columns: { pushToken: true } }),
         ]);
 
         await db.transaction(async (tx) => {
             await tx.insert(friends).values([
-                {
-                    userId: request.senderId,
-                    friendId: request.receiverId,
-                    friendRequestId: request.id,
-                },
-                {
-                    userId: request.receiverId,
-                    friendId: request.senderId,
-                    friendRequestId: request.id,
-                },
+                { userId: request.senderId, friendId: request.receiverId, friendRequestId: request.id },
+                { userId: request.receiverId, friendId: request.senderId, friendRequestId: request.id },
             ]);
 
-            await tx
-                .delete(friendRequests)
-                .where(eq(friendRequests.id, requestId));
+            await tx.delete(friendRequests).where(eq(friendRequests.id, requestId));
         });
 
         sendPushNotification(originalSender?.pushToken, {
@@ -295,9 +252,6 @@ export const acceptFriendRequest = async (req: Request, res: Response) => {
         return res.status(200).json({ success: true });
     } catch (error) {
         console.error("acceptFriendRequest error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
