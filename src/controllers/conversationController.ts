@@ -195,7 +195,7 @@ export const sendMessage = async (req: Request, res: Response) => {
 export const getMessages = async (req: Request, res: Response) => {
     try {
         const currentUserId = req.user.id;
-        const conversationId = String(req.params.conversationId); 
+        const conversationId = String(req.params.conversationId);
 
         const membership = await db.query.conversationMembers.findFirst({
             where: and(
@@ -212,6 +212,11 @@ export const getMessages = async (req: Request, res: Response) => {
             where: eq(messages.conversationId, conversationId),
             with: {
                 sender: { columns: { id: true, name: true, imageUrl: true } },
+                replyTo: {
+                    with: {
+                        sender: { columns: { id: true, name: true } },
+                    },
+                },
             },
             orderBy: (messages, { asc }) => [asc(messages.createdAt)],
         });
