@@ -29,13 +29,10 @@ const messageMediaStorage = new CloudinaryStorage({
         const isVideo = file.mimetype.startsWith("video/");
         return {
             folder: "message_media",
-            resource_type: isVideo ? "video" : "image",
-            allowed_formats: isVideo
-                ? ["mp4", "mov", "avi", "webm"]
-                : ["jpg", "jpeg", "png", "webp", "gif"],
-            ...(isVideo ? {} : {
-                transformation: [{ width: 1200, crop: "limit" }],
-            }),
+            resource_type: "auto",
+            ...(isVideo
+                ? {}
+                : { transformation: [{ width: 1200, crop: "limit" }] }),
         };
     },
 });
