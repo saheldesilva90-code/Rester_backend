@@ -11,6 +11,7 @@ import friendRequestRoutes from "./routes/friend-request.routes";
 import friendRoutes from "./routes/friend.routes";
 import noteRoutes from "./routes/note.routes";
 import audioRouter from "./routes/audio.routes";
+import messageRouter from "./routes/message.routes";
 import conversationRoutes from "./routes/conversation.routes";
 import { globalRateLimit } from "./middleware/rate-limit.middleware";
 import { sanitizeMiddleware } from "./middleware/sanitize.middleware";
@@ -44,6 +45,7 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/audio", audioRouter);
+app.use("/api/conversations/:conversationId/messages", messageRouter);
 
 initSocket(io);
 
