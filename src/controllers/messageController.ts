@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { db } from "../db";
-import { messages, conversations, conversationMembers } from "../db/schema";
+import { messages, conversations, conversationMembers, messageReactions } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 
 export const sendMessage = async (req: Request, res: Response) => {
@@ -89,12 +89,9 @@ export const updateMessage = async (req: Request, res: Response) => {
             return res.status(403).json({ success: false, message: "Not allowed" });
         }
 
-        const [updated] = await db
+        await db
             .update(messages)
-            .set({
-                content: content.trim(),
-                updatedAt: new Date(),
-            })
+            .set({ content: content.trim(), updatedAt: new Date() })
             .where(eq(messages.id, messageId))
             .returning();
 
@@ -131,9 +128,7 @@ export const deleteMessage = async (req: Request, res: Response) => {
             return res.status(403).json({ success: false, message: "Not allowed" });
         }
 
-        await db
-            .delete(messages)
-            .where(eq(messages.id, messageId));
+        await db.delete(messages).where(eq(messages.id, messageId));
 
         req.app.get("io")?.to(message.conversationId).emit("message_deleted", {
             id: messageId,
@@ -172,6 +167,9 @@ export const getMessages = async (req: Request, res: Response) => {
                         sender: { columns: { id: true, name: true } },
                     },
                 },
+                reactions: {
+                    columns: { emoji: true, userId: true },
+                },
             },
             orderBy: (messages, { asc }) => [asc(messages.createdAt)],
         });
@@ -180,5 +178,64 @@ export const getMessages = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("getMessages error:", error);
         return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+export const reactToMessage = async (req: Request, res: Response) => {
+    try {
+        const currentUserId = req.user.id;
+        const messageId = String(req.params.messageId);
+        const { emoji } = req.body;
+
+        if (!emoji) {
+            return res.status(400).json({ success: false, message: "Emoji is required" });
+        }
+
+        const message = await db.query.messages.findFirst({
+            where: eq(messages.id, messageId),
+        });
+
+        if (!message) {
+            return res.status(404).json({ success: false, message: "Message not found" });
+        }
+
+        const existing = await db.query.messageReactions.findFirst({
+            where: and(
+                eq(messageReactions.messageId, messageId),
+                eq(messageReactions.userId, currentUserId),
+                eq(messageReactions.emoji, emoji)
+            ),
+        });
+
+        if (existing) {
+            await db.delete(messageReactions).where(
+                and(
+                    eq(messageReactions.messageId, messageId),
+                    eq(messageReactions.userId, currentUserId),
+                    eq(messageReactions.emoji, emoji)
+                )
+            );
+        } else {
+            await db.insert(messageReactions).values({
+                messageId,
+                userId: currentUserId,
+                emoji,
+            });
+        }
+
+        const updatedReactions = await db.query.messageReactions.findMany({
+            where: eq(messageReactions.messageId, messageId),
+            columns: { emoji: true, userId: true },
+        });
+
+        req.app.get("io")?.to(message.conversationId).emit("message_reaction", {
+            messageId,
+            reactions: updatedReactions,
+        });
+
+        return res.status(200).json({ success: true, data: { reactions: updatedReactions } });
+    } catch (err) {
+        console.error("reactToMessage error:", err);
+        return res.status(500).json({ success: false });
     }
 };

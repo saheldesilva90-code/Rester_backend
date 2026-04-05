@@ -138,6 +138,26 @@ export const notes = pgTable("notes", {
         .$onUpdate(() => new Date()),
 });
 
+export const messageReactions = pgTable(
+    "message_reactions",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        messageId: uuid("message_id")
+            .notNull()
+            .references(() => messages.id, { onDelete: "cascade" }),
+        userId: uuid("user_id")
+            .notNull()
+            .references(() => users.id, { onDelete: "cascade" }),
+        emoji: text("emoji").notNull(),
+        createdAt: timestamp("created_at").defaultNow().notNull(),
+    }
+);
+
+export const messageReactionsRelations = relations(messageReactions, ({ one }) => ({
+    message: one(messages, { fields: [messageReactions.messageId], references: [messages.id] }),
+    user: one(users, { fields: [messageReactions.userId], references: [users.id] }),
+}));
+
 export const notesRelations = relations(notes, ({ one }) => ({
     user: one(users, { fields: [notes.userId], references: [users.id] }),
 }));
@@ -192,6 +212,7 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
     }),
     replies: many(messages, { relationName: "messageReplies" }),
     readReceipts: many(messageReadReceipts),
+    reactions: many(messageReactions),
 }));
 
 export const messageReadReceiptsRelations = relations(messageReadReceipts, ({ one }) => ({
