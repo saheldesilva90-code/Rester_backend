@@ -19,7 +19,6 @@ export function initSocket(io: Server) {
         const userId = socket.userId!;
         console.log(`Socket connected: ${userId}`);
 
-        // ── 1. Mark online ───────────────────────────────────────
         await db
             .update(users)
             .set({ isOnline: true, lastSeenAt: new Date() })
@@ -27,14 +26,19 @@ export function initSocket(io: Server) {
 
         socket.broadcast.emit("user_online", { userId });
 
-        // ── 2. Send full online list to this socket ──────────────
         const onlineRows = await db
             .select({ id: users.id })
             .from(users)
             .where(eq(users.isOnline, true));
         socket.emit("online_users", { userIds: onlineRows.map((u) => u.id) });
 
-        // ── 3. Online list on demand ─────────────────────────────
+        // ── AUTO-JOIN all conversations on connect (fixes reconnect room loss) ──
+        const memberships = await db.query.conversationMembers.findMany({
+            where: eq(conversationMembers.userId, userId),
+        });
+        memberships.forEach((m) => socket.join(m.conversationId));
+        console.log(`User ${userId} auto-joined ${memberships.length} conversation rooms`);
+
         socket.on("get_online_users", async () => {
             const rows = await db
                 .select({ id: users.id })
@@ -43,7 +47,7 @@ export function initSocket(io: Server) {
             socket.emit("online_users", { userIds: rows.map((u) => u.id) });
         });
 
-        // ── Join rooms ───────────────────────────────────────────
+        // Keep these for explicit joins (e.g. entering a new conversation)
         socket.on("join_conversations", async () => {
             const memberships = await db.query.conversationMembers.findMany({
                 where: eq(conversationMembers.userId, userId),
@@ -55,7 +59,6 @@ export function initSocket(io: Server) {
             socket.join(conversationId);
         });
 
-        // ── Send message ─────────────────────────────────────────
         socket.on("send_message", async ({ conversationId, content, replyToId, tempId }) => {
             try {
                 const membership = await db.query.conversationMembers.findFirst({
@@ -92,12 +95,10 @@ export function initSocket(io: Server) {
                     },
                 });
 
-                // ── KEY FIX: send tempId back so the sender can swap
-                //    the temp bubble out instantly by ID, not by guessing ──
-                // Send to everyone in the room EXCEPT the sender
+                // ── Emit to ALL other sockets in the room (receivers) ──
                 socket.to(conversationId).emit("new_message", { ...fullMessage, tempId: null });
 
-                // Send to sender with tempId so they can replace the spinner
+                // ── Confirm back to sender with tempId so they can swap the bubble ──
                 socket.emit("message_confirmed", { ...fullMessage, tempId });
 
             } catch (err) {
@@ -107,7 +108,6 @@ export function initSocket(io: Server) {
             }
         });
 
-        // ── Typing indicators ────────────────────────────────────
         socket.on("typing_start", ({ conversationId }) => {
             socket.to(conversationId).emit("user_typing", { userId, conversationId });
         });
@@ -116,7 +116,6 @@ export function initSocket(io: Server) {
             socket.to(conversationId).emit("user_stopped_typing", { userId, conversationId });
         });
 
-        // ── Disconnect ───────────────────────────────────────────
         socket.on("disconnect", async () => {
             console.log(`Socket disconnected: ${userId}`);
 
