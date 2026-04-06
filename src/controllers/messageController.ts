@@ -9,13 +9,28 @@ export const sendMessage = async (req: Request, res: Response) => {
         const conversationId = String(req.params.conversationId);
         const { content, replyToId } = req.body;
 
+        console.log("sendMessage hit");
+        console.log("body:", req.body);
+        console.log("file:", req.file
+            ? { fieldname: req.file.fieldname, mimetype: req.file.mimetype, size: req.file.size, path: (req.file as any).path }
+            : "NO FILE"
+        );
+
         const mediaUrl: string | null = (req.file as any)?.path ?? null;
 
         let mediaType: "image" | "video" | "audio" | null = null;
         if (req.file) {
-            if (req.file.mimetype.startsWith("video/")) mediaType = "video";
-            else if (req.file.mimetype.startsWith("audio/")) mediaType = "audio";
-            else mediaType = "image";
+            const mime = req.file.mimetype;
+            if (mime.startsWith("video/")) {
+                mediaType = "video";
+            } else if (
+                mime.startsWith("audio/") ||
+                (mime === "application/octet-stream" && req.file.originalname?.match(/\.(m4a|mp3|aac|wav|ogg)$/i))
+            ) {
+                mediaType = "audio";
+            } else {
+                mediaType = "image";
+            }
         }
 
         if (!content?.trim() && !mediaUrl) {
@@ -33,6 +48,8 @@ export const sendMessage = async (req: Request, res: Response) => {
             return res.status(403).json({ success: false, message: "Not a member" });
         }
 
+        const durationMs = req.body.durationMs ? Number(req.body.durationMs) : null;
+
         const [newMessage] = await db
             .insert(messages)
             .values({
@@ -42,7 +59,7 @@ export const sendMessage = async (req: Request, res: Response) => {
                 imageUrl: mediaUrl,
                 mediaType,
                 replyToId: replyToId ?? null,
-                durationMs: req.body.durationMs ? Number(req.body.durationMs) : null,
+                durationMs,
             })
             .returning();
 
@@ -64,6 +81,8 @@ export const sendMessage = async (req: Request, res: Response) => {
         });
 
         req.app.get("io")?.to(conversationId).emit("new_message", fullMessage);
+
+        console.log("Message saved:", newMessage.id, "| mediaType:", mediaType, "| mediaUrl:", mediaUrl);
 
         return res.status(201).json({ success: true, data: { message: fullMessage } });
     } catch (error) {
