@@ -27,12 +27,14 @@ const messageMediaStorage = new CloudinaryStorage({
     cloudinary,
     params: (req: any, file: Express.Multer.File) => {
         const isVideo = file.mimetype.startsWith("video/");
+        const isAudio = file.mimetype.startsWith("audio/");
+
         return {
             folder: "message_media",
-            resource_type: "auto",
-            ...(isVideo
-                ? {}
-                : { transformation: [{ width: 1200, crop: "limit" }] }),
+            resource_type: "auto",  // handles image, video, and audio automatically
+            ...(!isVideo && !isAudio
+                ? { transformation: [{ width: 1200, crop: "limit" }] }
+                : {}),
         };
     },
 });
@@ -44,11 +46,13 @@ export const uploadMessageMedia = multer({
         const allowed = [
             "image/jpeg", "image/png", "image/webp", "image/gif",
             "video/mp4", "video/quicktime", "video/avi", "video/webm",
+            "audio/m4a", "audio/mp4", "audio/mpeg", "audio/aac",
+            "audio/wav", "audio/webm", "audio/ogg",
         ];
         if (allowed.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error("Unsupported file type"));
+            cb(new Error(`Unsupported file type: ${file.mimetype}`));
         }
     },
 });

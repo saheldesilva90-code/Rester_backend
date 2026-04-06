@@ -67,6 +67,7 @@ export const messages = pgTable("messages", {
         .references(() => users.id, { onDelete: "cascade" }),
     content: text("content"),
     imageUrl: text("image_url"),
+    durationMs: integer("duration_ms"),
     replyToId: uuid("reply_to_id"),
     mediaType: text("media_type"),
     isDeleted: boolean("is_deleted").notNull().default(false),

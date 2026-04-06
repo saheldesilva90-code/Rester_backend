@@ -10,9 +10,13 @@ export const sendMessage = async (req: Request, res: Response) => {
         const { content, replyToId } = req.body;
 
         const mediaUrl: string | null = (req.file as any)?.path ?? null;
-        const mediaType: "image" | "video" | null = req.file
-            ? req.file.mimetype.startsWith("video/") ? "video" : "image"
-            : null;
+
+        let mediaType: "image" | "video" | "audio" | null = null;
+        if (req.file) {
+            if (req.file.mimetype.startsWith("video/")) mediaType = "video";
+            else if (req.file.mimetype.startsWith("audio/")) mediaType = "audio";
+            else mediaType = "image";
+        }
 
         if (!content?.trim() && !mediaUrl) {
             return res.status(400).json({ success: false, message: "Content or media is required" });
@@ -38,6 +42,7 @@ export const sendMessage = async (req: Request, res: Response) => {
                 imageUrl: mediaUrl,
                 mediaType,
                 replyToId: replyToId ?? null,
+                durationMs: req.body.durationMs ? Number(req.body.durationMs) : null,
             })
             .returning();
 

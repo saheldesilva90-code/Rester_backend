@@ -32,7 +32,6 @@ export function initSocket(io: Server) {
             .where(eq(users.isOnline, true));
         socket.emit("online_users", { userIds: onlineRows.map((u) => u.id) });
 
-        // ── AUTO-JOIN all conversations on connect (fixes reconnect room loss) ──
         const memberships = await db.query.conversationMembers.findMany({
             where: eq(conversationMembers.userId, userId),
         });
@@ -47,7 +46,6 @@ export function initSocket(io: Server) {
             socket.emit("online_users", { userIds: rows.map((u) => u.id) });
         });
 
-        // Keep these for explicit joins (e.g. entering a new conversation)
         socket.on("join_conversations", async () => {
             const memberships = await db.query.conversationMembers.findMany({
                 where: eq(conversationMembers.userId, userId),
@@ -95,10 +93,8 @@ export function initSocket(io: Server) {
                     },
                 });
 
-                // ── Emit to ALL other sockets in the room (receivers) ──
                 socket.to(conversationId).emit("new_message", { ...fullMessage, tempId: null });
 
-                // ── Confirm back to sender with tempId so they can swap the bubble ──
                 socket.emit("message_confirmed", { ...fullMessage, tempId });
 
             } catch (err) {
