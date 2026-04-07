@@ -31,6 +31,9 @@ export const updateMe = async (req: Request, res: Response) => {
         const userId = req.user.id;
         const { name, gender, dateOfBirth, isOnboarded, pushToken } = req.body;
 
+        console.log("updateMe body:", req.body);  // ADD THIS
+        console.log("updateMe file:", req.file);
+
         const imageUrl = req.file ? req.file.path : undefined;
 
         if (imageUrl) {
