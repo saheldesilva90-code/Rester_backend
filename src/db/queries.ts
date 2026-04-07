@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { eq, or, and, ilike, ne } from "drizzle-orm";
+import { or, and, eq, ilike, ne, gt } from "drizzle-orm";
 import {
     users,
     conversations,
@@ -25,11 +25,11 @@ export const createUser = async (data: NewUser) => {
 };
 
 export const getUserById = async (id: string) => {
-    return db.query.users.findFirst({ where: eq(users.id, id) });
+    return db.query.users.findFirst({ where: (u, { eq }) => eq(u.id, id) });
 };
 
 export const getUserByEmail = async (email: string) => {
-    return db.query.users.findFirst({ where: eq(users.email, email) });
+    return db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, email) });
 };
 
 export const updateUser = async (id: string, data: Partial<NewUser>) => {
@@ -59,12 +59,10 @@ export const updateRefreshToken = async (id: string, refreshToken: string | null
 
 export const searchUsers = async (query: string, currentUserId: string) => {
     return db.query.users.findMany({
-        where: (users, { and, or, ilike, ne }) =>
+        where: (u, { and, or, ilike, ne }) =>
             and(
-                ne(users.id, currentUserId),
-                or(
-                    ilike(users.name, `%${query}%`)
-                )
+                ne(u.id, currentUserId),
+                or(ilike(u.name, `%${query}%`))
             ),
     });
 };
@@ -88,7 +86,7 @@ export const sendFriendRequest = async (senderId: string, receiverId: string) =>
 
 export const getFriendRequestById = async (id: string) => {
     return db.query.friendRequests.findFirst({
-        where: eq(friendRequests.id, id),
+        where: (fr, { eq }) => eq(fr.id, id),
         with: { sender: true, receiver: true },
     });
 };
@@ -198,16 +196,16 @@ export const createNote = async (data: NewNote) => {
 
 export const getNoteById = async (id: string) => {
     return db.query.notes.findFirst({
-        where: eq(notes.id, id),
+        where: (n, { eq }) => eq(n.id, id),
         with: { user: true },
     });
 };
 
 export const getNoteByUserId = async (userId: string) => {
     return db.query.notes.findFirst({
-        where: eq(notes.userId, userId),
+        where: (n, { eq }) => eq(n.userId, userId),
         with: { user: true },
-        orderBy: (notes, { desc }) => [desc(notes.createdAt)],
+        orderBy: (n, { desc }) => [desc(n.createdAt)],
     });
 };
 
@@ -253,7 +251,7 @@ export const createConversation = async (
 
 export const getConversationById = async (id: string) => {
     return db.query.conversations.findFirst({
-        where: eq(conversations.id, id),
+        where: (c, { eq }) => eq(c.id, id),
         with: {
             members: { with: { user: true } },
             lastMessage: { with: { sender: true } },
@@ -263,7 +261,7 @@ export const getConversationById = async (id: string) => {
 
 export const getConversationsForUser = async (userId: string) => {
     const memberships = await db.query.conversationMembers.findMany({
-        where: eq(conversationMembers.userId, userId),
+        where: (cm, { eq }) => eq(cm.userId, userId),
         with: {
             conversation: {
                 with: {
@@ -309,8 +307,6 @@ export const removeMemberFromConversation = async (conversationId: string, userI
 };
 
 export const createMessage = async (data: NewMessage) => {
-    const areFriends = await checkFriendship(data.senderId, data.senderId);
-
     const [message] = await db.insert(messages).values(data).returning();
 
     await db
@@ -323,7 +319,7 @@ export const createMessage = async (data: NewMessage) => {
 
 export const getMessageById = async (id: string) => {
     return db.query.messages.findFirst({
-        where: eq(messages.id, id),
+        where: (m, { eq }) => eq(m.id, id),
         with: { sender: true, replyTo: true, readReceipts: true },
     });
 };
@@ -334,13 +330,13 @@ export const getMessagesForConversation = async (
     offset = 0
 ) => {
     return db.query.messages.findMany({
-        where: (messages, { eq }) => eq(messages.conversationId, conversationId),
+        where: (m, { eq }) => eq(m.conversationId, conversationId),
         with: {
             sender: true,
             replyTo: { with: { sender: true } },
             readReceipts: { with: { user: true } },
         },
-        orderBy: (messages, { desc }) => [desc(messages.createdAt)],
+        orderBy: (m, { desc }) => [desc(m.createdAt)],
         limit,
         offset,
     });
