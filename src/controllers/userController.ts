@@ -29,10 +29,13 @@ const extractPublicId = (url: string): string | null => {
 export const updateMe = async (req: Request, res: Response) => {
     try {
         const userId = req.user.id;
-        const { name, gender, dateOfBirth, isOnboarded, pushToken } = req.body;
+        const { name, gender, dateOfBirth, pushToken } = req.body;
 
-        console.log("updateMe body:", req.body);  // ADD THIS
-        console.log("updateMe file:", req.file);
+        // Fix: properly cast isOnboarded to boolean regardless of how it arrives
+        let isOnboarded: boolean | undefined = undefined;
+        if (req.body.isOnboarded !== undefined) {
+            isOnboarded = req.body.isOnboarded === true || req.body.isOnboarded === "true";
+        }
 
         const imageUrl = req.file ? req.file.path : undefined;
 
@@ -46,14 +49,15 @@ export const updateMe = async (req: Request, res: Response) => {
             }
         }
 
-        const updated = await updateUser(userId, {
-            ...(name !== undefined && { name }),
-            ...(imageUrl !== undefined && { imageUrl }),
-            ...(gender !== undefined && { gender }),
-            ...(dateOfBirth !== undefined && { dateOfBirth }),
-            ...(isOnboarded !== undefined && { isOnboarded }),
-            ...(pushToken !== undefined && { pushToken }),
-        });
+        const updateData: Record<string, any> = {};
+        if (name !== undefined) updateData.name = name;
+        if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+        if (gender !== undefined) updateData.gender = gender;
+        if (dateOfBirth !== undefined) updateData.dateOfBirth = dateOfBirth;
+        if (isOnboarded !== undefined) updateData.isOnboarded = isOnboarded;
+        if (pushToken !== undefined) updateData.pushToken = pushToken;
+
+        const updated = await updateUser(userId, updateData);
 
         res.status(200).json({ success: true, data: { user: sanitizeUser(updated) } });
     } catch (error) {

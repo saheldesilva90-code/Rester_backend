@@ -6,7 +6,7 @@ import { upload } from "../config/cloudinary";
 const router = Router();
 
 router.get("/me", authMiddleware, getMe);
-router.patch("/me", authMiddleware, upload.single("image"), updateMe);
+router.put("/me", authMiddleware, upload.single("image"), updateMe);
 router.post("/push-token", authMiddleware, savePushToken);
 router.get("/search", authMiddleware, searchUsers);
 router.get("/:userId", authMiddleware, getUserProfile);
