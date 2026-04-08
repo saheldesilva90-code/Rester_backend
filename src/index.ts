@@ -15,6 +15,7 @@ import messageRouter from "./routes/message.routes";
 import conversationRoutes from "./routes/conversation.routes";
 import { globalRateLimit } from "./middleware/rate-limit.middleware";
 import { sanitizeMiddleware } from "./middleware/sanitize.middleware";
+import streamRoutes from "./routes/stream.routes";
 
 const app = express();
 const httpServer = createServer(app);
@@ -46,6 +47,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/audio", audioRouter);
 app.use("/api/conversations/:conversationId/messages", messageRouter);
+app.use("/api/stream", streamRoutes);
 
 initSocket(io);
 
