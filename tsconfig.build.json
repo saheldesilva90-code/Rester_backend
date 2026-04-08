@@ -1,7 +1,0 @@
-{
-    "extends": "./tsconfig.json",
-    "compilerOptions": {
-        "moduleResolution": "node10",
-        "ignoreDeprecations": "5.0"
-    }
-}
